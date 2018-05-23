@@ -2,7 +2,7 @@ defmodule ReverseProxy.Runner do
   @moduledoc """
   Retreives content from an upstream.
   """
-
+  require Logger
   alias Plug.Conn
 
   @typedoc "Representation of an upstream service."
@@ -20,9 +20,33 @@ defmodule ReverseProxy.Runner do
     server = upstream_select(servers)
     {method, url, body, headers} = prepare_request(server, conn)
 
-    method
-      |> client.request(url, body, headers, timeout: 5_000)
-      |> process_response(conn)
+    client.request(method, url, body, headers, [timeout: 5_000, stream_to: self()])
+    stream_response(conn)
+  end
+
+  @spec stream_response(Conn.t) :: Conn.t
+  defp stream_response(conn) do
+    receive do
+      %HTTPoison.AsyncStatus{code: code} ->
+        conn
+          |> Conn.put_status(code)
+          |> stream_response
+      %HTTPoison.AsyncHeaders{headers: headers} ->
+        conn
+          |> put_resp_headers(headers)
+          |> Conn.send_chunked(conn.status)
+          |> stream_response
+      %HTTPoison.AsyncChunk{chunk: chunk} ->
+        case Conn.chunk(conn, chunk) do
+          {:ok, conn} ->
+            stream_response(conn)
+          {:error, :closed} ->
+            Logger.info("Client closed before chunk streaming ended")
+            conn
+        end
+      %HTTPoison.AsyncEnd{} ->
+        conn
+    end
   end
 
   @spec prepare_request(String.t, Conn.t) :: {Atom.t,
@@ -76,17 +100,6 @@ defmodule ReverseProxy.Runner do
   defp prepare_server(_, "https://" <> _ = server), do: server
   defp prepare_server(scheme, server) do
     "#{scheme}://#{server}"
-  end
-
-  @spec process_response({Atom.t, Map.t}, Conn.t) :: Conn.t
-  defp process_response({:error, _}, conn) do
-    conn |> Conn.send_resp(502, "Bad Gateway")
-  end
-  defp process_response({:ok, response}, conn) do
-    conn
-      |> put_resp_headers(response.headers)
-      |> Conn.delete_resp_header("transfer-encoding")
-      |> Conn.send_resp(response.status_code, response.body)
   end
 
   @spec put_resp_headers(Conn.t, [{String.t, String.t}]) :: Conn.t
