@@ -59,7 +59,6 @@ defmodule ReverseProxy.Runner do
               "x-forwarded-for",
               conn.remote_ip |> :inet.ntoa |> to_string
             )
-            |> Conn.delete_req_header("host")
             |> Conn.delete_req_header(
               "transfer-encoding"
             )
