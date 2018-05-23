@@ -20,7 +20,7 @@ defmodule ReverseProxy.Runner do
     server = upstream_select(servers)
     {method, url, body, headers} = prepare_request(server, conn)
 
-    client.request(method, url, body, headers, [timeout: 5_000, stream_to: self()])
+    client.request(method, url, body, headers, [timeout: :infinity, recv_timeout: :infinity, stream_to: self()])
     stream_response(conn)
   end
 
