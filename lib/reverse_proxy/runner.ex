@@ -77,6 +77,7 @@ defmodule ReverseProxy.Runner do
     method = conn.method |> String.downcase |> String.to_atom
     url = prepare_url(conn, options)
     headers = conn.req_headers
+    headers = if options[:preserve_host_header], do: headers, else: List.keyreplace(headers, "host", 0, {"host", options[:host]})
     body = case Conn.read_body(conn) do
       {:ok, body, _conn} ->
         body
