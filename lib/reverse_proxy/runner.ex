@@ -15,11 +15,9 @@ defmodule ReverseProxy.Runner do
     plug.call(conn, options)
   end
 
-  @spec retreive(Conn.t, upstream, Atom.t) :: Conn.t
-  def retreive(conn, servers, client \\ HTTPoison) do
-    server = upstream_select(servers)
-    {method, url, body, headers} = prepare_request(server, conn)
-
+  def retreive(conn, options, client \\ HTTPoison) do
+    {method, url, body, headers} = prepare_request(conn, options)
+    Logger.debug("Proxying to #{url}")
     client.request(method, url, body, headers, [timeout: :infinity, recv_timeout: :infinity, stream_to: self()])
     stream_response(conn)
   end
@@ -53,7 +51,21 @@ defmodule ReverseProxy.Runner do
                                                   String.t,
                                                   String.t,
                                                   [{String.t, String.t}]}
-  defp prepare_request(server, conn) do
+
+  defp prepare_url(conn, overrides) do
+    keys = [:scheme, :host, :port, :request_path, :query_string]
+    x = conn
+      |> Map.to_list
+      |> Enum.filter(fn {key, _} -> key in keys end)
+      |> Keyword.merge(overrides)
+    url = "#{x[:scheme]}://#{x[:host]}:#{x[:port]}#{x[:request_path]}"
+    case x[:query_string] do
+      "" -> url
+      query_string -> url <> "?" <> query_string
+    end
+  end
+
+  defp prepare_request(conn, options) do
     conn = conn
             |> Conn.put_req_header(
               "x-forwarded-for",
@@ -63,7 +75,7 @@ defmodule ReverseProxy.Runner do
               "transfer-encoding"
             )
     method = conn.method |> String.downcase |> String.to_atom
-    url = "#{prepare_server(conn.scheme, server)}#{conn.request_path}?#{conn.query_string}"
+    url = prepare_url(conn, options)
     headers = conn.req_headers
     body = case Conn.read_body(conn) do
       {:ok, body, _conn} ->
@@ -93,14 +105,6 @@ defmodule ReverseProxy.Runner do
     {method, url, body, headers}
   end
 
-  @spec prepare_server(String.t, String.t) :: String.t
-  defp prepare_server(scheme, server)
-  defp prepare_server(_, "http://" <> _ = server), do: server
-  defp prepare_server(_, "https://" <> _ = server), do: server
-  defp prepare_server(scheme, server) do
-    "#{scheme}://#{server}"
-  end
-
   @spec put_resp_headers(Conn.t, [{String.t, String.t}]) :: Conn.t
   defp put_resp_headers(conn, []), do: conn
   defp put_resp_headers(conn, [{header, value} | rest]) do
@@ -109,7 +113,4 @@ defmodule ReverseProxy.Runner do
       |> put_resp_headers(rest)
   end
 
-  defp upstream_select(servers) do
-    servers |> hd
-  end
 end

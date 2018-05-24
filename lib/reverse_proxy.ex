@@ -24,10 +24,16 @@ defmodule ReverseProxy do
 
   @spec call(Plug.Conn.t, Keyword.t) :: Plug.Conn.t
   def call(conn, opts) do
-    upstream = Keyword.get(opts, :upstream, [])
+    upstream = Keyword.get(opts, :upstream, "")
+      |> URI.parse
+      |> Map.to_list
+      |> Enum.filter(fn {_, val} -> !!val end)
+      |> keyword_rename(:path, :request_path)
+      |> keyword_rename(:query, :query_path)
+    opts = opts |> Keyword.merge(upstream)
     callback = fn conn ->
       runner = Application.get_env(:reverse_proxy, :runner, ReverseProxy.Runner)
-      runner.retreive(conn, upstream)
+      runner.retreive(conn, opts)
     end
 
     if Application.get_env(:reverse_proxy, :cache, false) do
@@ -37,6 +43,10 @@ defmodule ReverseProxy do
       callback.(conn)
     end
   end
+
+  defp keyword_rename(keywords, old_key, new_key), do: keywords
+    |> Keyword.put(new_key, keywords[old_key])
+    |> Keyword.delete(old_key)
 
   @spec start(term, term) :: {:error, term}
                            | {:ok, pid}
