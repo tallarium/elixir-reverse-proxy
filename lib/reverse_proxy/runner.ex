@@ -53,12 +53,17 @@ defmodule ReverseProxy.Runner do
                                                   [{String.t, String.t}]}
 
   defp prepare_url(conn, overrides) do
-    keys = [:scheme, :host, :port, :request_path, :query_string]
+    keys = [:scheme, :host, :port, :query_string]
     x = conn
       |> Map.to_list
       |> Enum.filter(fn {key, _} -> key in keys end)
       |> Keyword.merge(Enum.filter(overrides, fn {_, val} -> !!val end))
-    url = "#{x[:scheme]}://#{x[:host]}:#{x[:port]}#{x[:request_path]}"
+    request_path = Enum.join(conn.path_info, "/")
+    request_path = case request_path do
+      "" -> request_path
+      path -> "/" <> path
+    end
+    url = "#{x[:scheme]}://#{x[:host]}:#{x[:port]}#{overrides[:request_path]}#{request_path}"
     case x[:query_string] do
       "" -> url
       query_string -> url <> "?" <> query_string
