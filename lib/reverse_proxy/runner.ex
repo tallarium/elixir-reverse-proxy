@@ -17,7 +17,10 @@ defmodule ReverseProxy.Runner do
 
   def retreive(conn, options, client \\ HTTPoison) do
     {method, url, body, headers} = prepare_request(conn, options)
-    Logger.debug("Proxying to #{url}")
+    Logger.debug("Proxying to #{url}...
+    Method: #{inspect(method)}
+    Body: #{inspect(body)}
+    Headers: #{inspect(headers)}")
     client.request(method, url, body, headers, [timeout: :infinity, recv_timeout: :infinity, stream_to: self()])
     stream_response(conn)
   end
