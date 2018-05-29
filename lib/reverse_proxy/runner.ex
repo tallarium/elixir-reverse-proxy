@@ -26,15 +26,18 @@ defmodule ReverseProxy.Runner do
   defp stream_response(conn) do
     receive do
       %HTTPoison.AsyncStatus{code: code} ->
+        Logger.debug("Got status code: #{inspect(code)}")
         conn
           |> Conn.put_status(code)
           |> stream_response
       %HTTPoison.AsyncHeaders{headers: headers} ->
+        Logger.debug("Got headers: #{inspect(headers)}")
         conn
           |> put_resp_headers(headers)
           |> Conn.send_chunked(conn.status)
           |> stream_response
       %HTTPoison.AsyncChunk{chunk: chunk} ->
+        Logger.debug("Got chunk: #{inspect(chunk)}")
         case Conn.chunk(conn, chunk) do
           {:ok, conn} ->
             stream_response(conn)
@@ -43,6 +46,7 @@ defmodule ReverseProxy.Runner do
             conn
         end
       %HTTPoison.AsyncEnd{} ->
+        Logger.debug("Got end")
         conn
     end
   end
