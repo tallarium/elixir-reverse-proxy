@@ -26,15 +26,19 @@ defmodule ReverseProxy.Runner do
   defp stream_response(conn) do
     receive do
       %HTTPoison.AsyncStatus{code: code} ->
+        Logger.debug("Response HTTPoison.AsyncStatus received for request to #{conn.request_path}: #{code}")
         conn
           |> Conn.put_status(code)
           |> stream_response
       %HTTPoison.AsyncHeaders{headers: headers} ->
+        Logger.debug("Response HTTPoison.AsyncHeaders received for request to #{conn.request_path}: #{inspect headers}")
         conn
+        |> Conn.put_resp_header("transfer-encoding", "chunked")
           |> put_resp_headers(headers)
           |> Conn.send_chunked(conn.status)
           |> stream_response
       %HTTPoison.AsyncChunk{chunk: chunk} ->
+        Logger.debug("Response HTTPoison.AsyncChunk with length #{byte_size(chunk)} received for request to #{conn.request_path}")
         case Conn.chunk(conn, chunk) do
           {:ok, conn} ->
             stream_response(conn)
@@ -43,6 +47,8 @@ defmodule ReverseProxy.Runner do
             conn
         end
       %HTTPoison.AsyncEnd{} ->
+        Logger.debug("Response HTTPoison.AsyncEnd received for request to #{conn.request_path}")
+        Logger.debug("headers: #{inspect conn.resp_headers}")
         conn
     end
   end
