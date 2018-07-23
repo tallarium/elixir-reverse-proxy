@@ -33,8 +33,9 @@ defmodule ReverseProxy.Runner do
       %HTTPoison.AsyncHeaders{headers: headers} ->
         Logger.debug("Response HTTPoison.AsyncHeaders received for request to #{conn.request_path}: #{inspect headers}")
         conn
-        |> Conn.put_resp_header("transfer-encoding", "chunked")
           |> put_resp_headers(headers)
+          |> Conn.put_resp_header("transfer-encoding", "chunked")
+          |> Conn.put_resp_header("connection", "close")
           |> Conn.send_chunked(conn.status)
           |> stream_response
       %HTTPoison.AsyncChunk{chunk: chunk} ->
