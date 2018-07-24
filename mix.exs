@@ -17,14 +17,14 @@ defmodule ReverseProxy.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :plug, :cowboy, :httpoison],
+    [applications: [:logger, :plug, :cowboy, :httpotion],
      mod: {ReverseProxy, []}]
   end
 
   defp deps do
     [{:plug, "~> 1.2"},
      {:cowboy, "~> 2.3"},
-     {:httpoison, "~> 1.2"},
+     {:httpotion, "~> 3.1.0"},
 
      {:earmark, "~> 1.0", only: :dev},
      {:ex_doc, "~> 0.14", only: :dev},

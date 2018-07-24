@@ -15,31 +15,34 @@ defmodule ReverseProxy.Runner do
     plug.call(conn, options)
   end
 
-  def retreive(conn, options, client \\ HTTPoison) do
+  def retreive(conn, options, client \\ HTTPotion) do
     {method, url, body, headers} = prepare_request(conn, options)
     Logger.debug("Proxying to #{url}")
     client.request(method, url, body, headers, [timeout: :infinity, recv_timeout: :infinity, stream_to: self()])
+    Logger.info(inspect self())
     stream_response(conn)
   end
 
   @spec stream_response(Conn.t) :: Conn.t
   defp stream_response(conn) do
     receive do
-      %HTTPoison.AsyncStatus{code: code} ->
-        Logger.debug("Response HTTPoison.AsyncStatus received for request to #{conn.request_path}: #{code}")
+      # %HTTPotion.AsyncStatus{code: code} ->
+      #   Logger.debug("Response HTTPotion.AsyncStatus received for request to #{conn.request_path}: #{code}")
+      #   conn
+      #     |> Conn.put_status(code)
+      #     |> stream_response
+      %HTTPotion.AsyncHeaders{status_code: status_code, headers: headers} ->
+        Logger.debug("Response HTTPotion.AsyncHeaders with code #{inspect status_code} received for request to #{conn.request_path}: #{inspect headers}")
         conn
-          |> Conn.put_status(code)
+          # |> Conn.put_status(status_code)
+          |> put_resp_headers(Map.to_list(headers.hdrs))
+          # |> Conn.put_resp_header("transfer-encoding", "chunked")
+          # |> Conn.put_resp_header("connection", "close")
+          |> Conn.send_chunked(status_code)
           |> stream_response
-      %HTTPoison.AsyncHeaders{headers: headers} ->
-        Logger.debug("Response HTTPoison.AsyncHeaders received for request to #{conn.request_path}: #{inspect headers}")
-        conn
-          |> put_resp_headers(headers)
-          |> Conn.put_resp_header("transfer-encoding", "chunked")
-          |> Conn.put_resp_header("connection", "close")
-          |> Conn.send_chunked(conn.status)
-          |> stream_response
-      %HTTPoison.AsyncChunk{chunk: chunk} ->
-        Logger.debug("Response HTTPoison.AsyncChunk with length #{byte_size(chunk)} received for request to #{conn.request_path}")
+      %HTTPotion.AsyncChunk{chunk: chunk} ->
+        Logger.info("pid: #{inspect self()}")
+        Logger.debug("Response HTTPotion.AsyncChunk with length #{byte_size(chunk)} received for request to #{conn.request_path}")
         case Conn.chunk(conn, chunk) do
           {:ok, conn} ->
             stream_response(conn)
@@ -47,10 +50,10 @@ defmodule ReverseProxy.Runner do
             Logger.info("Client closed before chunk streaming ended")
             conn
         end
-      %HTTPoison.AsyncEnd{} ->
-        Logger.debug("Response HTTPoison.AsyncEnd received for request to #{conn.request_path}. Sending terminating chunk.")
+      %HTTPotion.AsyncEnd{} ->
+        Logger.debug("Response HTTPotion.AsyncEnd received for request to #{conn.request_path}. Sending terminating chunk.")
         Logger.debug("Response headers: #{inspect conn.resp_headers}")
-        :cowboy_req.stream_body(<<>>, :fin, elem(conn.adapter, 1))
+        # :cowboy_req.stream_body(<<>>, :fin, elem(conn.adapter, 1))
         conn
     end
   end
