@@ -48,8 +48,9 @@ defmodule ReverseProxy.Runner do
             conn
         end
       %HTTPoison.AsyncEnd{} ->
-        Logger.debug("Response HTTPoison.AsyncEnd received for request to #{conn.request_path}")
-        Logger.debug("headers: #{inspect conn.resp_headers}")
+        Logger.debug("Response HTTPoison.AsyncEnd received for request to #{conn.request_path}. Sending terminating chunk.")
+        Logger.debug("Response headers: #{inspect conn.resp_headers}")
+        :cowboy_req.stream_body(<<>>, :fin, elem(conn.adapter, 1))
         conn
     end
   end
