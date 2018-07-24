@@ -18,6 +18,7 @@ defmodule ReverseProxy do
 
   use Application
   @behaviour Plug
+  require Logger
 
   @spec init(Keyword.t) :: Keyword.t
   def init(opts), do: opts
@@ -31,6 +32,7 @@ defmodule ReverseProxy do
       |> keyword_rename(:path, :request_path)
       |> keyword_rename(:query, :query_path)
     opts = opts |> Keyword.merge(upstream)
+    Logger.info("ReverseProxy opts: #{inspect opts}")
     callback = fn conn ->
       runner = Application.get_env(:reverse_proxy, :runner, ReverseProxy.Runner)
       runner.retreive(conn, opts)

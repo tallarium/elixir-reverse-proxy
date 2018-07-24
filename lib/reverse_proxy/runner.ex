@@ -17,9 +17,10 @@ defmodule ReverseProxy.Runner do
 
   def retreive(conn, options, client \\ HTTPotion) do
     {method, url, body, headers} = prepare_request(conn, options)
-    Logger.debug("Proxying to #{url}")
-    client.request(method, url, body, headers, [timeout: :infinity, recv_timeout: :infinity, stream_to: self()])
-    Logger.info(inspect self())
+    Logger.debug("Proxying to #{url}. Method: #{method}, body: #{body}, headers: #{inspect headers}")
+    headers = Enum.map(headers, fn {key, value} -> {:"#{key}", value} end)
+    Logger.debug("Request headers: #{inspect headers}")
+    client.request(method, url, body, headers, [timeout: :infinity, stream_to: self()])
     stream_response(conn)
   end
 
@@ -31,6 +32,13 @@ defmodule ReverseProxy.Runner do
       #   conn
       #     |> Conn.put_status(code)
       #     |> stream_response
+      %HTTPotion.Response{} ->
+        Logger.debug("HTTPOTION RESPONSE")
+      %HTTPotion.ErrorResponse{message: message} ->
+        Logger.warn("HTTPotion.ErrorResponse: #{message}")
+      %HTTPotion.AsyncResponse{} ->
+        Logger.debug("HTTPotion.AsyncResponse")
+        stream_response(conn)
       %HTTPotion.AsyncHeaders{status_code: status_code, headers: headers} ->
         Logger.debug("Response HTTPotion.AsyncHeaders with code #{inspect status_code} received for request to #{conn.request_path}: #{inspect headers}")
         conn
@@ -41,7 +49,6 @@ defmodule ReverseProxy.Runner do
           |> Conn.send_chunked(status_code)
           |> stream_response
       %HTTPotion.AsyncChunk{chunk: chunk} ->
-        Logger.info("pid: #{inspect self()}")
         Logger.debug("Response HTTPotion.AsyncChunk with length #{byte_size(chunk)} received for request to #{conn.request_path}")
         case Conn.chunk(conn, chunk) do
           {:ok, conn} ->
