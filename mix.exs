@@ -3,7 +3,7 @@ defmodule ReverseProxy.Mixfile do
 
   def project do
     [app: :reverse_proxy,
-     version: "0.3.1",
+     version: "0.4.0",
      elixir: "~> 1.0",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -23,8 +23,8 @@ defmodule ReverseProxy.Mixfile do
 
   defp deps do
     [{:plug, "~> 1.2"},
-     {:cowboy, "~> 1.0"},
-     {:httpoison, "~> 0.9"},
+     {:cowboy, "~> 2.3"},
+     {:httpoison, "~> 1.2"},
 
      {:earmark, "~> 1.0", only: :dev},
      {:ex_doc, "~> 0.14", only: :dev},
