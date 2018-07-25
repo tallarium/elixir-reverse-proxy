@@ -20,7 +20,7 @@ defmodule ReverseProxy.Runner do
     Logger.debug("Proxying to #{url}. Method: #{method}, body: #{body}, headers: #{inspect headers}")
     headers = Enum.map(headers, fn {key, value} -> {:"#{key}", value} end)
     Logger.debug("Request headers: #{inspect headers}")
-    client.request(method, url, body, headers, [timeout: :infinity, stream_to: self()])
+    client.request(method, url, body, headers, [timeout: :infinity, stream_to: self(), ibrowse: [preserve_chunked_encoding: true]])
     stream_response(conn)
   end
 
